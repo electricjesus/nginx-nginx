@@ -132,6 +132,11 @@ static ngx_int_t ngx_http_variable_connection_requests(ngx_http_request_t *r,
 static ngx_int_t ngx_http_variable_connection_time(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
+#if (NGX_HAVE_NETFILTER_IPV4)
+static ngx_int_t ngx_http_variable_connection_dst(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+#endif
+
 static ngx_int_t ngx_http_variable_nginx_version(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_variable_hostname(ngx_http_request_t *r,
@@ -350,6 +355,11 @@ static ngx_http_variable_t  ngx_http_core_variables[] = {
 
     { ngx_string("connection_time"), NULL, ngx_http_variable_connection_time,
       0, NGX_HTTP_VAR_NOCACHEABLE, 0 },
+
+#if (NGX_HAVE_NETFILTER_IPV4)
+    { ngx_string("connection_original_dst"), NULL, ngx_http_variable_connection_dst, 
+      0, 0, 0 },
+#endif
 
     { ngx_string("nginx_version"), NULL, ngx_http_variable_nginx_version,
       0, 0, 0 },
@@ -2345,6 +2355,42 @@ ngx_http_variable_connection_time(ngx_http_request_t *r,
 
     return NGX_OK;
 }
+
+#if (NGX_HAVE_NETFILTER_IPV4)
+static ngx_int_t
+ngx_http_variable_connection_dst(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    struct sockaddr_in  dst;
+    socklen_t           socklen;
+    int                 rn;
+    u_char             *p;
+
+    socklen = sizeof(struct sockaddr_in);
+
+    rn = getsockopt(r->connection->fd, SOL_IP, SO_ORIGINAL_DST, (void *) &dst,
+                    &socklen);
+    if (rn < 0) {
+        ngx_log_error(NGX_LOG_CRIT, r->connection->log, ngx_socket_errno,
+                      "getsockopt(SO_ORIGINAL_DST) failed");
+        return NGX_ERROR;
+    }
+
+    p = ngx_pnalloc(r->pool, NGX_SOCKADDR_STRLEN);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->len = ngx_sock_ntop((struct sockaddr *) &dst, socklen, p,
+                           NGX_SOCKADDR_STRLEN, dst.sin_port);
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = p;
+
+    return NGX_OK;
+}
+#endif
 
 
 static ngx_int_t

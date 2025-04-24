@@ -215,6 +215,21 @@ ngx_feature_test="struct __user_cap_data_struct    data;
                   (void) SYS_capset"
 . auto/feature
 
+# netfilter_v4
+
+ngx_feature="netfilter_ipv4"
+ngx_feature_name="NGX_HAVE_NETFILTER_IPV4"
+ngx_feature_run=no
+ngx_feature_incs="#include <linux/netfilter_ipv4.h>"
+ngx_feature_path=
+ngx_feature_libs=
+ngx_feature_test="int so_original_dst;
+
+                  so_original_dst = SO_ORIGINAL_DST;
+
+                  (void) so_original_dst;"
+. auto/feature
+
 
 # crypt_r()
 
